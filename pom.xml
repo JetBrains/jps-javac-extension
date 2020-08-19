@@ -9,4 +9,10 @@
         <module>javac-ast-extension</module>
         <module>javac-ref-scanner-8</module>
     </modules>
+    <distributionManagement>
+        <repository>
+            <id>bintray-jetbrains-intellij-third-party-dependencies</id>
+            <url>https://api.bintray.com/maven/jetbrains/intellij-third-party-dependencies/jps-javac-extension/;publish=1</url>
+        </repository>
+    </distributionManagement>
 </project>
