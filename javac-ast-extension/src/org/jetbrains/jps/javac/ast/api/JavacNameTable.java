@@ -23,7 +23,7 @@ public class JavacNameTable {
   private final Map<Name, String> myParsedNameCache = new LinkedHashMap<Name, String>() {
     @Override
     protected boolean removeEldestEntry(Map.Entry<Name, String> eldest) {
-      return size() > 2000;
+      return size() > 5000;
     }
   };
 
