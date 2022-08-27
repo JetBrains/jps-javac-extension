@@ -10,7 +10,7 @@ import javax.lang.model.element.Modifier;
 import java.io.*;
 import java.util.*;
 
-public class JavacFileData {
+public final class JavacFileData {
   public static final String CUSTOM_DATA_PLUGIN_ID = "ast.reference.collector"; // fake plugin name to fit into customOutputData API
   public static final String CUSTOM_DATA_KIND = "JavacFileData";
 
