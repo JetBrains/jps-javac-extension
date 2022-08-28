@@ -17,7 +17,7 @@ package org.jetbrains.jps.javac.ast.api;
 
 import org.jetbrains.annotations.NotNull;
 
-public class JavacTypeCast {
+public final class JavacTypeCast {
   @NotNull
   private final JavacRef.JavacClass myOperandType;
   @NotNull

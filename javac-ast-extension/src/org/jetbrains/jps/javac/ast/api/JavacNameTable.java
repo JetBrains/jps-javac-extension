@@ -8,11 +8,10 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-public class JavacNameTable {
+public final class JavacNameTable {
   private final Elements myElements;
   private Name myAsterisk;
   private Name myInit;

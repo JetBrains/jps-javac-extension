@@ -8,6 +8,6 @@
     <orderEntry type="jdk" jdkName="1.6" jdkType="JavaSDK" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="org.jetbrains:annotations-java5:20.0.0" level="project" />
-    <orderEntry type="library" name="org.jetbrains.intellij.deps:trove4j:1.0.20200330" level="project" />
+    <orderEntry type="library" name="it.unimi.dsi.fastutil" level="project" />
   </component>
 </module>
