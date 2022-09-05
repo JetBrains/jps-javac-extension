@@ -108,7 +108,7 @@ public final class JavacFileData {
 
   private static Object2IntOpenHashMap<JavacRef> readRefs(final DataInput in) throws IOException {
     int size = in.readInt();
-    Object2IntOpenHashMap<JavacRef> deserialized = new Object2IntOpenHashMap<JavacRef>(size);
+    Object2IntOpenHashMap<JavacRef> deserialized = new Object2IntOpenHashMap<>(size);
     while (size-- > 0) {
       final JavacRef key = readJavacRef(in);
       final int value = in.readInt();
@@ -127,7 +127,7 @@ public final class JavacFileData {
 
   private static List<JavacDef> readDefs(final DataInput in) throws IOException {
     int size = in.readInt();
-    List<JavacDef> result = new ArrayList<JavacDef>(size);
+    List<JavacDef> result = new ArrayList<>(size);
     while (size-- > 0) {
       result.add(readJavacDef(in));
     }
@@ -246,14 +246,14 @@ public final class JavacFileData {
 
   private static Set<Modifier> readModifiers(final DataInput input) throws IOException {
     int size = input.readInt();
-    final List<Modifier> modifierList = new ArrayList<Modifier>(size);
+    final List<Modifier> modifierList = new ArrayList<>(size);
     while (size-- > 0) {
       modifierList.add(Modifier.valueOf(input.readUTF()));
     }
     return modifierList.isEmpty() ? Collections.<Modifier>emptySet() : EnumSet.copyOf(modifierList);
   }
 
-  private static void saveCasts(@NotNull final DataOutput output, @NotNull List<? extends JavacTypeCast> casts) throws IOException {
+  private static void saveCasts(@NotNull final DataOutput output, @NotNull List<JavacTypeCast> casts) throws IOException {
     output.writeInt(casts.size());
     for (JavacTypeCast cast : casts) {
       writeJavacRef(output, cast.getOperandType());
@@ -264,7 +264,7 @@ public final class JavacFileData {
   @NotNull
   private static List<JavacTypeCast> readCasts(@NotNull final DataInput input) throws IOException {
     int size = input.readInt();
-    List<JavacTypeCast> result = new ArrayList<JavacTypeCast>(size);
+    List<JavacTypeCast> result = new ArrayList<>(size);
     while (size-- > 0) {
       final JavacRef.JavacClass operandType = (JavacRef.JavacClass)readJavacRef(input);
       final JavacRef.JavacClass castType = (JavacRef.JavacClass)readJavacRef(input);
@@ -276,7 +276,7 @@ public final class JavacFileData {
   @NotNull
   private static Set<JavacRef> readImplicitToString(@NotNull DataInputStream in) throws IOException {
     int size = ((DataInput)in).readInt();
-    final Set<JavacRef> result = new HashSet<JavacRef>(size);
+    final Set<JavacRef> result = new HashSet<>(size);
     while (size-- > 0) {
       result.add(readJavacRef(in));
     }

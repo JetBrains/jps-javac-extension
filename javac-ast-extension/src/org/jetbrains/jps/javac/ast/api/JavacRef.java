@@ -235,7 +235,7 @@ public interface JavacRef {
     }
     
     @Nullable
-    public static JavacElementRefBase fromElement(@Nullable String containigClass, Element element, Element qualifier, JavacNameTable nameTableCache, @Nullable ImportProperties importProps) {
+    public static JavacElementRefBase fromElement(@Nullable String containingClass, Element element, Element qualifier, JavacNameTable nameTableCache, @Nullable ImportProperties importProps) {
       if (qualifier != null) {
         TypeMirror type = qualifier.asType();
         if (!isValidType(type)) {
@@ -247,11 +247,11 @@ public interface JavacRef {
       }
       else if (element instanceof VariableElement) {
         if (qualifier == null && !checkEnclosingElement(element)) return null;
-        return new JavacElementFieldImpl(containigClass, element, qualifier, nameTableCache, importProps);
+        return new JavacElementFieldImpl(containingClass, element, qualifier, nameTableCache, importProps);
       }
       else if (element instanceof ExecutableElement) {
         if (qualifier == null && !checkEnclosingElement(element)) return null;
-        return new JavacElementMethodImpl(containigClass, element, qualifier, nameTableCache, importProps);
+        return new JavacElementMethodImpl(containingClass, element, qualifier, nameTableCache, importProps);
       }
       else if (element == null || element.getKind() == ElementKind.OTHER || element.getKind() == ElementKind.TYPE_PARAMETER) {
         // javac reserved symbol kind (e.g: com.sun.tools.javac.comp.Resolve.ResolveError)

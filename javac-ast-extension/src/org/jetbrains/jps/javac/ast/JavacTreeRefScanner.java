@@ -3,6 +3,7 @@ package org.jetbrains.jps.javac.ast;
 
 import com.sun.source.tree.*;
 import com.sun.source.util.TreeScanner;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.jetbrains.jps.javac.ast.api.JavacDef;
 import org.jetbrains.jps.javac.ast.api.JavacNameTable;
 import org.jetbrains.jps.javac.ast.api.JavacRef;
@@ -98,7 +99,7 @@ class JavacTreeRefScanner extends TreeScanner<Tree, JavacReferenceCollectorListe
     final Element element = refCollector.getReferencedElement(node);
 
     if (refCollector.getNameTable().isInit(node.getName()) &&
-        myCurrentEnclosingElementOffset.peek() == refCollector.getStartOffset(node)) {
+        myCurrentEnclosingElementOffset.topLong() == refCollector.getStartOffset(node)) {
       return null;
     }
 
@@ -180,9 +181,9 @@ class JavacTreeRefScanner extends TreeScanner<Tree, JavacReferenceCollectorListe
     return myCurrentEnclosingElement.isEmpty()? null : myCurrentEnclosingElement.peek();
   }
 
-  private final LinkedList<TypeElement> myCurrentEnclosingElement = new LinkedList<TypeElement>();
-  private final LinkedList<Long> myCurrentEnclosingElementOffset = new LinkedList<Long>();
-  private final LinkedList<NewClassTree> myCurrentAnonymousTree = new LinkedList<NewClassTree>();
+  private final LinkedList<TypeElement> myCurrentEnclosingElement = new LinkedList<>();
+  private final LongArrayList myCurrentEnclosingElementOffset = new LongArrayList();
+  private final LinkedList<NewClassTree> myCurrentAnonymousTree = new LinkedList<>();
 
   @Override
   public Tree visitClass(ClassTree node, JavacReferenceCollectorListener.ReferenceCollector refCollector) {
@@ -221,9 +222,10 @@ class JavacTreeRefScanner extends TreeScanner<Tree, JavacReferenceCollectorListe
         scan(myCurrentAnonymousTree.peek().getArguments(), refCollector);
       }
       super.visitClass(node, refCollector);
-    } finally {
+    }
+    finally {
       myCurrentEnclosingElement.pop();
-      myCurrentEnclosingElementOffset.pop();
+      myCurrentEnclosingElementOffset.popLong();
     }
     return null;
   }
@@ -361,12 +363,12 @@ class JavacTreeRefScanner extends TreeScanner<Tree, JavacReferenceCollectorListe
     if (rType == null) return null;
 
     if (isToStringImplicitCall(lType, rType, collector)) {
-      Set<TypeElement> result = new HashSet<TypeElement>();
+      Set<TypeElement> result = new HashSet<>();
       visitTypeHierarchy(rType, result, collector.getTypeUtility());
       return result;
     }
     if (isToStringImplicitCall(rType, lType, collector)) {
-      Set<TypeElement> result = new HashSet<TypeElement>();
+      Set<TypeElement> result = new HashSet<>();
       visitTypeHierarchy(lType, result, collector.getTypeUtility());
       return result;
     }
