@@ -1,9 +1,9 @@
 // Copyright 2000-2017 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license that can be found in the LICENSE file.
 package org.jetbrains.jps.javac.ast.api;
 
-import it.unimi.dsi.fastutil.objects.Object2IntMap;
-import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
-import it.unimi.dsi.fastutil.objects.ObjectIterator;
+import gnu.trove.THashSet;
+import gnu.trove.TObjectIntHashMap;
+import gnu.trove.TObjectIntProcedure;
 import org.jetbrains.annotations.NotNull;
 
 import javax.lang.model.element.Modifier;
@@ -20,13 +20,13 @@ public final class JavacFileData {
   private static final byte FUN_EXPR_MARKER = 3;
 
   private final String myFilePath;
-  private final Object2IntOpenHashMap<JavacRef> myRefs;
+  private final TObjectIntHashMap<JavacRef> myRefs;
   private final List<JavacTypeCast> myCasts;
   private final List<JavacDef> myDefs;
   private final Set<JavacRef> myImplicitRefs;
 
   public JavacFileData(@NotNull String path,
-                       @NotNull Object2IntOpenHashMap<JavacRef> refs,
+                       @NotNull TObjectIntHashMap<JavacRef> refs,
                        @NotNull List<JavacTypeCast> casts,
                        @NotNull List<JavacDef> defs,
                        @NotNull Set<JavacRef> implicitRefs) {
@@ -48,7 +48,7 @@ public final class JavacFileData {
   }
 
   @NotNull
-  public Object2IntOpenHashMap<JavacRef> getRefs() {
+  public TObjectIntHashMap<JavacRef> getRefs() {
     return myRefs;
   }
 
@@ -85,7 +85,7 @@ public final class JavacFileData {
     final DataInputStream in = new DataInputStream(new ByteArrayInputStream(bytes));
     try {
       final String path = in.readUTF();
-      final Object2IntOpenHashMap<JavacRef> refs = readRefs(in);
+      final TObjectIntHashMap<JavacRef> refs = readRefs(in);
       final List<JavacTypeCast> casts = readCasts(in);
       final List<JavacDef> defs = readDefs(in);
       final Set<JavacRef> implicitRefs = readImplicitToString(in);
@@ -96,19 +96,31 @@ public final class JavacFileData {
     }
   }
 
-  private static void saveRefs(final DataOutput out, Object2IntOpenHashMap<JavacRef> refs) throws IOException {
+  private static void saveRefs(final DataOutput out, TObjectIntHashMap<JavacRef> refs) throws IOException {
+    final IOException[] exception = new IOException[]{null};
     out.writeInt(refs.size());
-    ObjectIterator<Object2IntMap.Entry<JavacRef>> iterator = refs.object2IntEntrySet().fastIterator();
-    while (iterator.hasNext()) {
-      Object2IntMap.Entry<JavacRef> entry = iterator.next();
-      writeJavacRef(out, entry.getKey());
-      out.writeInt(entry.getIntValue());
+    if (!refs.forEachEntry(new TObjectIntProcedure<JavacRef>() {
+      @Override
+      public boolean execute(JavacRef ref, int count) {
+        try {
+          writeJavacRef(out, ref);
+          out.writeInt(count);
+        }
+        catch (IOException e) {
+          exception[0] = e;
+          return false;
+        }
+        return true;
+      }
+    })) {
+      assert exception[0] != null;
+      throw exception[0];
     }
   }
 
-  private static Object2IntOpenHashMap<JavacRef> readRefs(final DataInput in) throws IOException {
+  private static TObjectIntHashMap<JavacRef> readRefs(final DataInput in) throws IOException {
     int size = in.readInt();
-    Object2IntOpenHashMap<JavacRef> deserialized = new Object2IntOpenHashMap<JavacRef>(size);
+    TObjectIntHashMap<JavacRef> deserialized = new TObjectIntHashMap<JavacRef>(size);
     while (size-- > 0) {
       final JavacRef key = readJavacRef(in);
       final int value = in.readInt();
@@ -276,7 +288,7 @@ public final class JavacFileData {
   @NotNull
   private static Set<JavacRef> readImplicitToString(@NotNull DataInputStream in) throws IOException {
     int size = ((DataInput)in).readInt();
-    final Set<JavacRef> result = new HashSet<JavacRef>(size);
+    final Set<JavacRef> result = new THashSet<JavacRef>(size);
     while (size-- > 0) {
       result.add(readJavacRef(in));
     }

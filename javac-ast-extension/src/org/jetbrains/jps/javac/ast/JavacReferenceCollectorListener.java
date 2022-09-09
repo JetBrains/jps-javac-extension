@@ -3,7 +3,8 @@ package org.jetbrains.jps.javac.ast;
 
 import com.sun.source.tree.*;
 import com.sun.source.util.*;
-import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
+import gnu.trove.THashSet;
+import gnu.trove.TObjectIntHashMap;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.jps.javac.ast.api.*;
 
@@ -150,7 +151,7 @@ final class JavacReferenceCollectorListener implements TaskListener {
   }
 
   private void scanImports(CompilationUnitTree compilationUnit,
-                           Object2IntOpenHashMap<JavacRef> elements,
+                           TObjectIntHashMap<JavacRef> elements,
                            ReferenceCollector incompletelyProcessedFile) {
     for (ImportTree anImport : compilationUnit.getImports()) {
       final MemberSelectTree id = (MemberSelectTree)anImport.getQualifiedIdentifier();
@@ -166,7 +167,7 @@ final class JavacReferenceCollectorListener implements TaskListener {
             // member import
             for (Element memberElement : myElementUtility.getAllMembers((TypeElement)ownerElement)) {
               if (memberElement.getSimpleName() == name) {
-                elements.addTo(JavacRef.JavacElementRefBase.fromElement(null, memberElement, null, myNameTableCache, importProps), 1);
+                incrementOrAdd(elements, JavacRef.JavacElementRefBase.fromElement(null, memberElement, null, myNameTableCache, importProps));
               }
             }
           }
@@ -179,11 +180,11 @@ final class JavacReferenceCollectorListener implements TaskListener {
     }
   }
 
-  private void collectClassImports(Element baseImport, Object2IntOpenHashMap<JavacRef> collector, final JavacRef.ImportProperties importProps) {
+  private void collectClassImports(Element baseImport, TObjectIntHashMap<JavacRef> collector, final JavacRef.ImportProperties importProps) {
     for (Element element = baseImport;
          element != null && element.getKind() != ElementKind.PACKAGE;
          element = element.getEnclosingElement()) {
-      collector.addTo(JavacRef.JavacElementRefBase.fromElement(null, element, null, myNameTableCache, importProps), 1);
+      incrementOrAdd(collector, JavacRef.JavacElementRefBase.fromElement(null, element, null, myNameTableCache, importProps));
     }
   }
 
@@ -198,9 +199,9 @@ final class JavacReferenceCollectorListener implements TaskListener {
                                CompilationUnitTree unitTree) {
       myRemainDeclarations = remainDeclarations;
       myFileData = new JavacFileData(
-        filePath, new Object2IntOpenHashMap<JavacRef>(), new ArrayList<JavacTypeCast>(), new ArrayList<JavacDef>(), new HashSet<JavacRef>()
+        filePath, createReferenceHolder(), new ArrayList<JavacTypeCast>(), createDefinitionHolder(), new THashSet<JavacRef>()
       );
-      myTreeHelper = new JavacTreeHelper(unitTree, myTreeUtility, myAtLeastJdk8);
+      myTreeHelper = new JavacTreeHelper(unitTree, myTreeUtility);
 
       if (isPackageInfo(filePath)) {
         final ExpressionTree packageName = unitTree.getPackageName();
@@ -222,7 +223,7 @@ final class JavacReferenceCollectorListener implements TaskListener {
     }
 
     void sinkReference(@Nullable JavacRef.JavacElementRefBase ref) {
-      myFileData.getRefs().addTo(ref, 1);
+      incrementOrAdd(myFileData.getRefs(), ref);
     }
 
     void sinkDeclaration(JavacDef def) {
@@ -288,17 +289,23 @@ final class JavacReferenceCollectorListener implements TaskListener {
     }
   }
 
-  private static final class JavacTreeHelper {
+  private static TObjectIntHashMap<JavacRef> createReferenceHolder() {
+    return new TObjectIntHashMap<JavacRef>();
+  }
+
+  private static List<JavacDef> createDefinitionHolder() {
+    return new ArrayList<JavacDef>();
+  }
+
+  private final class JavacTreeHelper {
     private final TreePath myUnitPath;
     private final Trees myTreeUtil;
     private final SourcePositions myPositions;
-    private final boolean myAtLeastJdk8;
 
-    private JavacTreeHelper(CompilationUnitTree unit, Trees treeUtil, boolean atLeastJdk8) {
+    private JavacTreeHelper(CompilationUnitTree unit, Trees treeUtil) {
       myUnitPath = new TreePath(unit);
       myTreeUtil = treeUtil;
       myPositions = treeUtil.getSourcePositions();
-      myAtLeastJdk8 = atLeastJdk8;
     }
 
     private long getStartOffset(Tree tree) {
@@ -320,6 +327,12 @@ final class JavacReferenceCollectorListener implements TaskListener {
 
     private TypeMirror getType(Tree tree) {
       return myTreeUtil.getTypeMirror(new TreePath(myUnitPath, tree));
+    }
+  }
+
+  private static void incrementOrAdd(TObjectIntHashMap<JavacRef> map, JavacRef key) {
+    if (!map.adjustValue(key, 1)) {
+      map.put(key, 1);
     }
   }
 

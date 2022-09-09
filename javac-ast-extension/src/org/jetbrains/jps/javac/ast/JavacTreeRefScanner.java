@@ -3,6 +3,7 @@ package org.jetbrains.jps.javac.ast;
 
 import com.sun.source.tree.*;
 import com.sun.source.util.TreeScanner;
+import gnu.trove.THashSet;
 import org.jetbrains.jps.javac.ast.api.JavacDef;
 import org.jetbrains.jps.javac.ast.api.JavacNameTable;
 import org.jetbrains.jps.javac.ast.api.JavacRef;
@@ -11,7 +12,10 @@ import org.jetbrains.jps.javac.ast.api.JavacTypeCast;
 import javax.lang.model.element.*;
 import javax.lang.model.type.*;
 import javax.lang.model.util.Types;
-import java.util.*;
+import java.util.EnumSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Set;
 
 class JavacTreeRefScanner extends TreeScanner<Tree, JavacReferenceCollectorListener.ReferenceCollector> {
   private static final Set<ElementKind> ALLOWED_ELEMENTS = EnumSet.of(ElementKind.ENUM,
@@ -361,12 +365,12 @@ class JavacTreeRefScanner extends TreeScanner<Tree, JavacReferenceCollectorListe
     if (rType == null) return null;
 
     if (isToStringImplicitCall(lType, rType, collector)) {
-      Set<TypeElement> result = new HashSet<TypeElement>();
+      Set<TypeElement> result = new THashSet<TypeElement>();
       visitTypeHierarchy(rType, result, collector.getTypeUtility());
       return result;
     }
     if (isToStringImplicitCall(rType, lType, collector)) {
-      Set<TypeElement> result = new HashSet<TypeElement>();
+      Set<TypeElement> result = new THashSet<TypeElement>();
       visitTypeHierarchy(lType, result, collector.getTypeUtility());
       return result;
     }
