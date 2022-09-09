@@ -386,6 +386,11 @@ public interface JavacRef {
         }
 
         @Override
+        public String visitTypeVariable(TypeVariable t, Void unused) {
+          return visit(t.getUpperBound());
+        }
+
+        @Override
         public String visitUnknown(TypeMirror t, Void param) {
           return null;
         }
