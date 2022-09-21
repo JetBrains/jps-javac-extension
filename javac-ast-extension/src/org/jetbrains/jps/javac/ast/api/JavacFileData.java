@@ -1,7 +1,6 @@
 // Copyright 2000-2017 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license that can be found in the LICENSE file.
 package org.jetbrains.jps.javac.ast.api;
 
-import gnu.trove.THashSet;
 import gnu.trove.TObjectIntHashMap;
 import gnu.trove.TObjectIntProcedure;
 import org.jetbrains.annotations.NotNull;
@@ -288,7 +287,7 @@ public final class JavacFileData {
   @NotNull
   private static Set<JavacRef> readImplicitToString(@NotNull DataInputStream in) throws IOException {
     int size = ((DataInput)in).readInt();
-    final Set<JavacRef> result = new THashSet<JavacRef>(size);
+    final Set<JavacRef> result = new HashSet<JavacRef>(size);
     while (size-- > 0) {
       result.add(readJavacRef(in));
     }
