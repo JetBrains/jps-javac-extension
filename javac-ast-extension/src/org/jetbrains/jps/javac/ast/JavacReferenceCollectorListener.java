@@ -3,7 +3,6 @@ package org.jetbrains.jps.javac.ast;
 
 import com.sun.source.tree.*;
 import com.sun.source.util.*;
-import gnu.trove.THashSet;
 import gnu.trove.TObjectIntHashMap;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.jps.javac.ast.api.*;
@@ -199,7 +198,7 @@ final class JavacReferenceCollectorListener implements TaskListener {
                                CompilationUnitTree unitTree) {
       myRemainDeclarations = remainDeclarations;
       myFileData = new JavacFileData(
-        filePath, createReferenceHolder(), new ArrayList<JavacTypeCast>(), createDefinitionHolder(), new THashSet<JavacRef>()
+        filePath, createReferenceHolder(), new ArrayList<JavacTypeCast>(), createDefinitionHolder(), new HashSet<JavacRef>()
       );
       myTreeHelper = new JavacTreeHelper(unitTree, myTreeUtility);
 
