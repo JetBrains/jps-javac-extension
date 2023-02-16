@@ -1,8 +1,6 @@
 // Copyright 2000-2017 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license that can be found in the LICENSE file.
 package org.jetbrains.jps.javac.ast.api;
 
-import gnu.trove.TObjectIntHashMap;
-import gnu.trove.TObjectIntProcedure;
 import org.jetbrains.annotations.NotNull;
 
 import javax.lang.model.element.Modifier;
@@ -19,13 +17,13 @@ public final class JavacFileData {
   private static final byte FUN_EXPR_MARKER = 3;
 
   private final String myFilePath;
-  private final TObjectIntHashMap<JavacRef> myRefs;
+  private final Map<JavacRef, Integer> myRefs;
   private final List<JavacTypeCast> myCasts;
   private final List<JavacDef> myDefs;
   private final Set<JavacRef> myImplicitRefs;
 
   public JavacFileData(@NotNull String path,
-                       @NotNull TObjectIntHashMap<JavacRef> refs,
+                       @NotNull Map<JavacRef, Integer> refs,
                        @NotNull List<JavacTypeCast> casts,
                        @NotNull List<JavacDef> defs,
                        @NotNull Set<JavacRef> implicitRefs) {
@@ -47,7 +45,7 @@ public final class JavacFileData {
   }
 
   @NotNull
-  public TObjectIntHashMap<JavacRef> getRefs() {
+  public Map<JavacRef, Integer> getRefs() {
     return myRefs;
   }
 
@@ -84,7 +82,7 @@ public final class JavacFileData {
     final DataInputStream in = new DataInputStream(new ByteArrayInputStream(bytes));
     try {
       final String path = in.readUTF();
-      final TObjectIntHashMap<JavacRef> refs = readRefs(in);
+      final Map<JavacRef, Integer> refs = readRefs(in);
       final List<JavacTypeCast> casts = readCasts(in);
       final List<JavacDef> defs = readDefs(in);
       final Set<JavacRef> implicitRefs = readImplicitToString(in);
@@ -95,31 +93,17 @@ public final class JavacFileData {
     }
   }
 
-  private static void saveRefs(final DataOutput out, TObjectIntHashMap<JavacRef> refs) throws IOException {
-    final IOException[] exception = new IOException[]{null};
+  private static void saveRefs(final DataOutput out, Map<JavacRef, Integer> refs) throws IOException {
     out.writeInt(refs.size());
-    if (!refs.forEachEntry(new TObjectIntProcedure<JavacRef>() {
-      @Override
-      public boolean execute(JavacRef ref, int count) {
-        try {
-          writeJavacRef(out, ref);
-          out.writeInt(count);
-        }
-        catch (IOException e) {
-          exception[0] = e;
-          return false;
-        }
-        return true;
-      }
-    })) {
-      assert exception[0] != null;
-      throw exception[0];
+    for (Map.Entry<JavacRef, Integer> entry : refs.entrySet()) {
+      writeJavacRef(out, entry.getKey());
+      out.writeInt(entry.getValue());
     }
   }
 
-  private static TObjectIntHashMap<JavacRef> readRefs(final DataInput in) throws IOException {
+  private static Map<JavacRef, Integer> readRefs(final DataInput in) throws IOException {
     int size = in.readInt();
-    TObjectIntHashMap<JavacRef> deserialized = new TObjectIntHashMap<JavacRef>(size);
+    Map<JavacRef, Integer> deserialized = new HashMap<JavacRef, Integer>(size, 0.95f);
     while (size-- > 0) {
       final JavacRef key = readJavacRef(in);
       final int value = in.readInt();

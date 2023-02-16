@@ -3,7 +3,6 @@ package org.jetbrains.jps.javac.ast;
 
 import com.sun.source.tree.*;
 import com.sun.source.util.*;
-import gnu.trove.TObjectIntHashMap;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.jps.javac.ast.api.*;
 
@@ -150,7 +149,7 @@ final class JavacReferenceCollectorListener implements TaskListener {
   }
 
   private void scanImports(CompilationUnitTree compilationUnit,
-                           TObjectIntHashMap<JavacRef> elements,
+                           Map<JavacRef, Integer> elements,
                            ReferenceCollector incompletelyProcessedFile) {
     for (ImportTree anImport : compilationUnit.getImports()) {
       final MemberSelectTree id = (MemberSelectTree)anImport.getQualifiedIdentifier();
@@ -179,7 +178,7 @@ final class JavacReferenceCollectorListener implements TaskListener {
     }
   }
 
-  private void collectClassImports(Element baseImport, TObjectIntHashMap<JavacRef> collector, final JavacRef.ImportProperties importProps) {
+  private void collectClassImports(Element baseImport, Map<JavacRef, Integer> collector, final JavacRef.ImportProperties importProps) {
     for (Element element = baseImport;
          element != null && element.getKind() != ElementKind.PACKAGE;
          element = element.getEnclosingElement()) {
@@ -288,8 +287,8 @@ final class JavacReferenceCollectorListener implements TaskListener {
     }
   }
 
-  private static TObjectIntHashMap<JavacRef> createReferenceHolder() {
-    return new TObjectIntHashMap<JavacRef>();
+  private static Map<JavacRef, Integer> createReferenceHolder() {
+    return new HashMap<JavacRef, Integer>(16, 0.95f);
   }
 
   private static List<JavacDef> createDefinitionHolder() {
@@ -329,10 +328,9 @@ final class JavacReferenceCollectorListener implements TaskListener {
     }
   }
 
-  private static void incrementOrAdd(TObjectIntHashMap<JavacRef> map, JavacRef key) {
-    if (!map.adjustValue(key, 1)) {
-      map.put(key, 1);
-    }
+  private static void incrementOrAdd(Map<JavacRef, Integer> map, JavacRef key) {
+    final Integer present = map.get(key);
+    map.put(key, present != null? present + 1 : 1);
   }
 
   //TODO
