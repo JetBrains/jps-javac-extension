@@ -1,3 +1,5 @@
+# jps-javac-extension [![official JetBrains project](http://jb.gg/badges/official.svg)](https://github.com/JetBrains/.github/blob/main/profile/README.md)
+
 This project contains infrastructure classes for obtaining data directly from javac's AST.
 These are used to collect references to java imports, classes, methods and fields (including compile-time constants) to facilitate
 JPS incremental compilation and building ".class"-based references index.
