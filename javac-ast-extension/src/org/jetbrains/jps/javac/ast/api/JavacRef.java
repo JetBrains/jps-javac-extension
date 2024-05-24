@@ -21,6 +21,7 @@ import org.jetbrains.annotations.Nullable;
 import javax.lang.model.element.*;
 import javax.lang.model.type.*;
 import javax.lang.model.util.SimpleTypeVisitor6;
+import java.util.Collections;
 import java.util.Set;
 
 public interface JavacRef {
@@ -30,6 +31,12 @@ public interface JavacRef {
   String getName();
 
   Set<Modifier> getModifiers();
+
+  /**
+   * @return a set of modifier names that do not match current version of {@link Modifier} interface.
+   * For example, this may be the case when JavaRef was parsed/creaded in the runtime newer than the one where the user's code executes
+   */
+  Set<String> getUnmatchedModifiers();
 
   @NotNull
   String getOwnerName();
@@ -80,10 +87,12 @@ public interface JavacRef {
   abstract class JavacRefBase implements JavacRef {
     private final String myName;
     private final Set<Modifier> myModifiers;
+    private final Set<String> myUnmatchedModifiers;
 
-    protected JavacRefBase(String name, Set<Modifier> modifiers) {
+    protected JavacRefBase(String name, Set<Modifier> modifiers, Set<String> unmatchedModifiers) {
       myName = name;
       myModifiers = modifiers;
+      myUnmatchedModifiers = unmatchedModifiers != null? Collections.unmodifiableSet(unmatchedModifiers) : Collections.<String>emptySet();
     }
 
     @NotNull
@@ -97,6 +106,11 @@ public interface JavacRef {
       return myModifiers;
     }
 
+    @Override
+    public Set<String> getUnmatchedModifiers() {
+      return myUnmatchedModifiers;
+    }
+
     @Nullable
     @Override
     public ImportProperties getImportProperties() {
@@ -107,8 +121,8 @@ public interface JavacRef {
   class JavacClassImpl extends JavacRefBase implements JavacClass {
     private final boolean myAnonymous;
 
-    public JavacClassImpl(boolean anonymous, Set<Modifier> modifiers, String name) {
-      super(name, modifiers);
+    public JavacClassImpl(boolean anonymous, Set<Modifier> modifiers, Set<String> unmatchedModifiers, String name) {
+      super(name, modifiers, unmatchedModifiers);
       myAnonymous = anonymous;
     }
 
@@ -136,8 +150,8 @@ public interface JavacRef {
     private final String myOwnerName;
     private final byte myParamCount;
 
-    public JavacMethodImpl(@Nullable String containingClass, String ownerName, byte paramCount, Set<Modifier> modifiers, String name) {
-      super(name, modifiers);
+    public JavacMethodImpl(@Nullable String containingClass, String ownerName, byte paramCount, Set<Modifier> modifiers, Set<String> unmatchedModifiers, String name) {
+      super(name, modifiers, unmatchedModifiers);
       myContainingClass = containingClass != null && !containingClass.isEmpty()? containingClass : null;
       myOwnerName = ownerName;
       myParamCount = paramCount;
@@ -167,8 +181,8 @@ public interface JavacRef {
     private final String myOwnerName;
     private final String myDescriptor;
 
-    public JavacFieldImpl(@Nullable String containingClass, String ownerName, Set<Modifier> modifiers, String name, String descriptor) {
-      super(name, modifiers);
+    public JavacFieldImpl(@Nullable String containingClass, String ownerName, Set<Modifier> modifiers, Set<String> unmatchedModifiers, String name, String descriptor) {
+      super(name, modifiers, unmatchedModifiers);
       myContainingClass = containingClass != null && !containingClass.isEmpty()? containingClass : null;
       myOwnerName = ownerName;
       myDescriptor = descriptor != null && !descriptor.isEmpty()? descriptor : null;
@@ -215,6 +229,11 @@ public interface JavacRef {
     @Override
     public Set<Modifier> getModifiers() {
       return myOriginalElement.getModifiers();
+    }
+
+    @Override
+    public Set<String> getUnmatchedModifiers() {
+      return Collections.emptySet();
     }
 
     @NotNull

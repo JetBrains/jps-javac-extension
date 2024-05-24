@@ -198,7 +198,7 @@ public final class JavacFileData {
     else {
       throw new IllegalStateException("unknown type: " + ref.getClass());
     }
-    writeModifiers(out, ref.getModifiers());
+    writeModifiers(out, ref);
     out.writeUTF(ref.getName());
   }
 
@@ -207,45 +207,60 @@ public final class JavacFileData {
     switch (marker) {
       case CLASS_MARKER:
         final boolean isAnonymous = in.readBoolean();
-        final Set<Modifier> classModifiers = readModifiers(in);
+        final ModifiersStruct classModifiers = readModifiers(in);
         final String className = in.readUTF();
-        return new JavacRef.JavacClassImpl(isAnonymous, classModifiers, className);
+        return new JavacRef.JavacClassImpl(isAnonymous, classModifiers.matched, classModifiers.unmatched, className);
 
       case METHOD_MARKER:
         final String methodContainingClass = in.readUTF();
         final String methodOwnerName = in.readUTF();
         final byte methodParamCount = in.readByte();
-        final Set<Modifier> methodModifiers = readModifiers(in);
+        final ModifiersStruct methodModifiers = readModifiers(in);
         final String methodName = in.readUTF();
-        return new JavacRef.JavacMethodImpl(methodContainingClass, methodOwnerName, methodParamCount, methodModifiers, methodName);
+        return new JavacRef.JavacMethodImpl(methodContainingClass, methodOwnerName, methodParamCount, methodModifiers.matched, methodModifiers.unmatched, methodName);
 
       case FIELD_MARKER:
         final String fieldContainingClass = in.readUTF();
         final String fieldOwnerName = in.readUTF();
         final String fieldDescriptor = in.readUTF();
-        final Set<Modifier> fieldModifiers = readModifiers(in);
+        final ModifiersStruct fieldModifiers = readModifiers(in);
         final String fieldName = in.readUTF();
-        return new JavacRef.JavacFieldImpl(fieldContainingClass, fieldOwnerName, fieldModifiers, fieldName, fieldDescriptor);
+        return new JavacRef.JavacFieldImpl(fieldContainingClass, fieldOwnerName, fieldModifiers.matched, fieldModifiers.unmatched, fieldName, fieldDescriptor);
 
       default:
         throw new IllegalStateException("unknown marker " + marker);
     }
   }
 
-  private static void writeModifiers(final DataOutput output, Set<Modifier> modifiers) throws IOException {
-    output.writeInt(modifiers.size());
+  private static void writeModifiers(final DataOutput output, JavacRef ref) throws IOException {
+    Set<Modifier> modifiers = ref.getModifiers();
+    Set<String> unmatched = ref.getUnmatchedModifiers();
+    output.writeInt(modifiers.size() + unmatched.size());
     for (Modifier modifier : modifiers) {
       output.writeUTF(modifier.name());
     }
+    for (String modifierName : unmatched) {
+      output.writeUTF(modifierName);
+    }
   }
 
-  private static Set<Modifier> readModifiers(final DataInput input) throws IOException {
+  private static ModifiersStruct readModifiers(final DataInput input) throws IOException {
     int size = input.readInt();
-    final List<Modifier> modifierList = new ArrayList<Modifier>(size);
-    while (size-- > 0) {
-      modifierList.add(Modifier.valueOf(input.readUTF()));
+    List<Modifier> matched = null;
+    List<String> unmatched = null;
+    if (size > 0) {
+      matched = new ArrayList<>(size);
+      while (size-- > 0) {
+        String name = input.readUTF();
+        try {
+          matched.add(Modifier.valueOf(name));
+        }
+        catch (IllegalArgumentException e) {
+          (unmatched == null? (unmatched = new ArrayList<>()) : unmatched).add(name);
+        }
+      }
     }
-    return modifierList.isEmpty() ? Collections.<Modifier>emptySet() : EnumSet.copyOf(modifierList);
+    return new ModifiersStruct(matched, unmatched);
   }
 
   private static void saveCasts(@NotNull final DataOutput output, @NotNull List<? extends JavacTypeCast> casts) throws IOException {
@@ -259,7 +274,7 @@ public final class JavacFileData {
   @NotNull
   private static List<JavacTypeCast> readCasts(@NotNull final DataInput input) throws IOException {
     int size = input.readInt();
-    List<JavacTypeCast> result = new ArrayList<JavacTypeCast>(size);
+    List<JavacTypeCast> result = new ArrayList<>(size);
     while (size-- > 0) {
       final JavacRef.JavacClass operandType = (JavacRef.JavacClass)readJavacRef(input);
       final JavacRef.JavacClass castType = (JavacRef.JavacClass)readJavacRef(input);
@@ -271,7 +286,7 @@ public final class JavacFileData {
   @NotNull
   private static Set<JavacRef> readImplicitToString(@NotNull DataInputStream in) throws IOException {
     int size = ((DataInput)in).readInt();
-    final Set<JavacRef> result = new HashSet<JavacRef>(size);
+    final Set<JavacRef> result = new HashSet<>(size);
     while (size-- > 0) {
       result.add(readJavacRef(in));
     }
@@ -282,6 +297,16 @@ public final class JavacFileData {
     ((DataOutput)out).writeInt(refs.size());
     for (JavacRef ref : refs) {
       writeJavacRef(out, ref);
+    }
+  }
+
+  private static final class ModifiersStruct {
+    public final Set<Modifier> matched;
+    public final Set<String> unmatched;
+
+    public ModifiersStruct(Collection<Modifier> matched, Collection<String> unmatched) {
+      this.matched = matched == null || matched.isEmpty()? Collections.<Modifier>emptySet() : EnumSet.copyOf(matched);
+      this.unmatched = unmatched == null || unmatched.isEmpty()? Collections.<String>emptySet() : Collections.unmodifiableSet(new HashSet<>(unmatched));
     }
   }
 }

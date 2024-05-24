@@ -192,9 +192,7 @@ final class JavacReferenceCollectorListener implements TaskListener {
     private int myRemainDeclarations;
     private final JavacRef.JavacClass myPackageInfo;
 
-    private ReferenceCollector(int remainDeclarations,
-                               String filePath,
-                               CompilationUnitTree unitTree) {
+    private ReferenceCollector(int remainDeclarations, String filePath, CompilationUnitTree unitTree) {
       myRemainDeclarations = remainDeclarations;
       myFileData = new JavacFileData(
         filePath, createReferenceHolder(), new ArrayList<JavacTypeCast>(), createDefinitionHolder(), new HashSet<JavacRef>()
@@ -204,7 +202,7 @@ final class JavacReferenceCollectorListener implements TaskListener {
       if (isPackageInfo(filePath)) {
         final ExpressionTree packageName = unitTree.getPackageName();
         final String pack = packageName != null ? packageName.toString() : "";
-        myPackageInfo = new JavacRef.JavacClassImpl(false, Collections.<Modifier>emptySet(), pack.isEmpty()? "package-info" : pack + ".package-info");
+        myPackageInfo = new JavacRef.JavacClassImpl(false, Collections.<Modifier>emptySet(), Collections.<String>emptySet(), pack.isEmpty()? "package-info" : pack + ".package-info");
         sinkDeclaration(new JavacDef.JavacClassDef(myPackageInfo, JavacRef.EMPTY_ARRAY));
       }
       else {
