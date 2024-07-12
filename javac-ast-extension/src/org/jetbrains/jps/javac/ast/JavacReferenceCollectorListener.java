@@ -18,6 +18,8 @@ import java.lang.reflect.Method;
 import java.util.*;
 
 final class JavacReferenceCollectorListener implements TaskListener {
+  private static final String PACKAGE_INFO_SRC_FILENAME = "package-info.java";
+  
   private final JavacReferenceCollector.Consumer<? super JavacFileData> myDataConsumer;
   private final JavacTask myJavacTask;
   private final JavacTreeRefScanner myAstScanner;
@@ -148,9 +150,7 @@ final class JavacReferenceCollectorListener implements TaskListener {
     }
   }
 
-  private void scanImports(CompilationUnitTree compilationUnit,
-                           Map<JavacRef, Integer> elements,
-                           ReferenceCollector incompletelyProcessedFile) {
+  private void scanImports(CompilationUnitTree compilationUnit, Map<JavacRef, Integer> elements, ReferenceCollector incompletelyProcessedFile) {
     for (ImportTree anImport : compilationUnit.getImports()) {
       final MemberSelectTree id = (MemberSelectTree)anImport.getQualifiedIdentifier();
       final Element element = incompletelyProcessedFile.getReferencedElement(id);
@@ -161,7 +161,7 @@ final class JavacReferenceCollectorListener implements TaskListener {
           final Element ownerElement = incompletelyProcessedFile.getReferencedElement(classImport);
           final Name name = id.getIdentifier();
           final JavacRef.ImportProperties importProps = JavacRef.ImportProperties.create(anImport.isStatic(), myNameTableCache.isAsterisk(name));
-          if (!importProps.isOnDemand()) {
+          if (ownerElement != null && !importProps.isOnDemand()) {
             // member import
             for (Element memberElement : myElementUtility.getAllMembers((TypeElement)ownerElement)) {
               if (memberElement.getSimpleName() == name) {
@@ -211,8 +211,8 @@ final class JavacReferenceCollectorListener implements TaskListener {
     }
 
     private boolean isPackageInfo(String filePath) {
-      if (filePath != null && filePath.endsWith("package-info.java")) {
-        final int idx = filePath.length() - "package-info.java".length() - 1;
+      if (filePath != null && filePath.endsWith(PACKAGE_INFO_SRC_FILENAME)) {
+        final int idx = filePath.length() - PACKAGE_INFO_SRC_FILENAME.length() - 1;
         return idx >= 0 && (filePath.charAt(idx) == '/' || filePath.charAt(idx) == File.separatorChar);
       }
       return false;
