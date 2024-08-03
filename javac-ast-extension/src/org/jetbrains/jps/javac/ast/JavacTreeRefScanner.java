@@ -14,14 +14,9 @@ import javax.lang.model.util.Types;
 import java.util.*;
 
 class JavacTreeRefScanner extends TreeScanner<Tree, JavacReferenceCollectorListener.ReferenceCollector> {
-  private static final Set<ElementKind> ALLOWED_ELEMENTS = EnumSet.of(ElementKind.ENUM,
-                                                                      ElementKind.CLASS,
-                                                                      ElementKind.ANNOTATION_TYPE,
-                                                                      ElementKind.INTERFACE,
-                                                                      ElementKind.ENUM_CONSTANT,
-                                                                      ElementKind.FIELD,
-                                                                      ElementKind.CONSTRUCTOR,
-                                                                      ElementKind.METHOD);
+  private static final Set<ElementKind> ALLOWED_ELEMENTS = addConstants(ElementKind.class, EnumSet.of(
+    ElementKind.CLASS, ElementKind.ANNOTATION_TYPE, ElementKind.INTERFACE, ElementKind.ENUM, ElementKind.ENUM_CONSTANT, ElementKind.FIELD, ElementKind.CONSTRUCTOR, ElementKind.METHOD
+  ), "RECORD");
 
   @Override
   public Tree visitCompilationUnit(CompilationUnitTree node, JavacReferenceCollectorListener.ReferenceCollector refCollector) {
@@ -69,7 +64,7 @@ class JavacTreeRefScanner extends TreeScanner<Tree, JavacReferenceCollectorListe
   @Override
   public Tree visitVariable(VariableTree node, JavacReferenceCollectorListener.ReferenceCollector refCollector) {
     final Element element = refCollector.getReferencedElement(node);
-    if (element != null && element.getKind() == ElementKind.FIELD) {
+    if (element != null && element.getKind().isField()) {
       final JavacRef.JavacElementRefBase ref = refCollector.asJavacRef(getCurrentEnclosingTypeElement(), element);
       if (ref != null) {
         processMemberDefinition(refCollector, ref, element, element.asType());
@@ -291,10 +286,7 @@ class JavacTreeRefScanner extends TreeScanner<Tree, JavacReferenceCollectorListe
     element = element.getEnclosingElement();
     while (element != null) {
       ElementKind kind = element.getKind();
-      if (kind == ElementKind.CLASS ||
-          kind == ElementKind.INTERFACE ||
-          kind == ElementKind.ENUM ||
-          kind == ElementKind.PACKAGE) {
+      if (kind.isClass() || kind.isInterface() || kind == ElementKind.PACKAGE) {
         return element;
       }
       element = element.getEnclosingElement();
@@ -400,5 +392,16 @@ class JavacTreeRefScanner extends TreeScanner<Tree, JavacReferenceCollectorListe
         }
       }
     }
+  }
+
+  private static <T extends Enum<T>, C extends Collection<? super T>> C addConstants(Class<T> enumClass, C acc, String... names) {
+    for (String constName : names) {
+      try {
+        acc.add(T.valueOf(enumClass, constName));
+      }
+      catch (IllegalArgumentException ignored) {
+      }
+    }
+    return acc;
   }
 }
