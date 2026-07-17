@@ -2,10 +2,25 @@
 package org.jetbrains.jps.javac.ast.api;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import javax.lang.model.element.Modifier;
-import java.io.*;
-import java.util.*;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInput;
+import java.io.DataInputStream;
+import java.io.DataOutput;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 public final class JavacFileData {
   public static final String CUSTOM_DATA_PLUGIN_ID = "ast.reference.collector"; // fake plugin name to fit into customOutputData API
@@ -15,6 +30,7 @@ public final class JavacFileData {
   private static final byte METHOD_MARKER = 1;
   private static final byte FIELD_MARKER = 2;
   private static final byte FUN_EXPR_MARKER = 3;
+  private static final byte PACKAGE_IMPORT_MARKER = 4;
 
   private final String myFilePath;
   private final Map<JavacRef, Integer> myRefs;
@@ -176,7 +192,10 @@ public final class JavacFileData {
   }
 
   private static void writeJavacRef(@NotNull DataOutput out, JavacRef ref) throws IOException {
-    if (ref instanceof JavacRef.JavacClass) {
+    if (ref instanceof JavacRef.JavacPackageImport) {
+      out.writeByte(PACKAGE_IMPORT_MARKER);
+    }
+    else if (ref instanceof JavacRef.JavacClass) {
       out.writeByte(CLASS_MARKER);
       out.writeBoolean(((JavacRef.JavacClass)ref).isAnonymous());
     }
@@ -200,6 +219,17 @@ public final class JavacFileData {
     }
     writeModifiers(out, ref);
     out.writeUTF(ref.getName());
+    writeImportProperties(out, ref.getImportProperties());
+  }
+
+  private static void writeImportProperties(@NotNull DataOutput out, @Nullable JavacRef.ImportProperties props) throws IOException {
+    out.writeByte(props == null? 0 : 1 | (props.isStatic()? 2 : 0) | (props.isOnDemand()? 4 : 0));
+  }
+
+  @Nullable
+  private static JavacRef.ImportProperties readImportProperties(@NotNull DataInput in) throws IOException {
+    final byte bits = in.readByte();
+    return bits == 0? null : JavacRef.ImportProperties.create((bits & 2) != 0, (bits & 4) != 0);
   }
 
   private static JavacRef readJavacRef(@NotNull DataInput in) throws IOException {
@@ -209,7 +239,7 @@ public final class JavacFileData {
         final boolean isAnonymous = in.readBoolean();
         final ModifiersStruct classModifiers = readModifiers(in);
         final String className = in.readUTF();
-        return new JavacRef.JavacClassImpl(isAnonymous, classModifiers.matched, classModifiers.unmatched, className);
+        return new JavacRef.JavacClassImpl(isAnonymous, classModifiers.matched, classModifiers.unmatched, className, readImportProperties(in));
 
       case METHOD_MARKER:
         final String methodContainingClass = in.readUTF();
@@ -217,7 +247,7 @@ public final class JavacFileData {
         final byte methodParamCount = in.readByte();
         final ModifiersStruct methodModifiers = readModifiers(in);
         final String methodName = in.readUTF();
-        return new JavacRef.JavacMethodImpl(methodContainingClass, methodOwnerName, methodParamCount, methodModifiers.matched, methodModifiers.unmatched, methodName);
+        return new JavacRef.JavacMethodImpl(methodContainingClass, methodOwnerName, methodParamCount, methodModifiers.matched, methodModifiers.unmatched, methodName, readImportProperties(in));
 
       case FIELD_MARKER:
         final String fieldContainingClass = in.readUTF();
@@ -225,7 +255,13 @@ public final class JavacFileData {
         final String fieldDescriptor = in.readUTF();
         final ModifiersStruct fieldModifiers = readModifiers(in);
         final String fieldName = in.readUTF();
-        return new JavacRef.JavacFieldImpl(fieldContainingClass, fieldOwnerName, fieldModifiers.matched, fieldModifiers.unmatched, fieldName, fieldDescriptor);
+        return new JavacRef.JavacFieldImpl(fieldContainingClass, fieldOwnerName, fieldModifiers.matched, fieldModifiers.unmatched, fieldName, fieldDescriptor, readImportProperties(in));
+
+      case PACKAGE_IMPORT_MARKER:
+        readModifiers(in); // always empty for a package
+        String packageFqName = in.readUTF();
+        readImportProperties(in); // intrinsic for a package import: always (isStatic=false, isOnDemand=true)
+        return new JavacRef.JavacPackageImportImpl(packageFqName);
 
       default:
         throw new IllegalStateException("unknown marker " + marker);

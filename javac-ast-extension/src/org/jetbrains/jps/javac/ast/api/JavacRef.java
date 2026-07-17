@@ -18,8 +18,18 @@ package org.jetbrains.jps.javac.ast.api;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import javax.lang.model.element.*;
-import javax.lang.model.type.*;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.ArrayType;
+import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.PrimitiveType;
+import javax.lang.model.type.TypeKind;
+import javax.lang.model.type.TypeMirror;
+import javax.lang.model.type.TypeVariable;
 import javax.lang.model.util.SimpleTypeVisitor6;
 import java.util.Collections;
 import java.util.Set;
@@ -84,15 +94,25 @@ public interface JavacRef {
     String getContainingClass();
   }
 
+  /**
+   * A package referenced by a type-import-on-demand declaration: {@code import p.q.*;}.
+   * Such imports are the only way a package itself is referenced from a java source;
+   * they are always non-static and always on-demand (JLS 7.5.2).
+   */
+  interface JavacPackageImport extends JavacRef {
+  }
+
   abstract class JavacRefBase implements JavacRef {
     private final String myName;
     private final Set<Modifier> myModifiers;
     private final Set<String> myUnmatchedModifiers;
+    private final ImportProperties myImportProps;
 
-    protected JavacRefBase(String name, Set<Modifier> modifiers, Set<String> unmatchedModifiers) {
+    protected JavacRefBase(String name, Set<Modifier> modifiers, Set<String> unmatchedModifiers, @Nullable ImportProperties importProps) {
       myName = name;
       myModifiers = modifiers;
       myUnmatchedModifiers = unmatchedModifiers != null? Collections.unmodifiableSet(unmatchedModifiers) : Collections.<String>emptySet();
+      myImportProps = importProps;
     }
 
     @NotNull
@@ -114,7 +134,7 @@ public interface JavacRef {
     @Nullable
     @Override
     public ImportProperties getImportProperties() {
-      return null;
+      return myImportProps;
     }
   }
 
@@ -122,7 +142,11 @@ public interface JavacRef {
     private final boolean myAnonymous;
 
     public JavacClassImpl(boolean anonymous, Set<Modifier> modifiers, Set<String> unmatchedModifiers, String name) {
-      super(name, modifiers, unmatchedModifiers);
+      this(anonymous, modifiers, unmatchedModifiers, name, null);
+    }
+
+    public JavacClassImpl(boolean anonymous, Set<Modifier> modifiers, Set<String> unmatchedModifiers, String name, @Nullable ImportProperties importProps) {
+      super(name, modifiers, unmatchedModifiers, importProps);
       myAnonymous = anonymous;
     }
 
@@ -150,8 +174,8 @@ public interface JavacRef {
     private final String myOwnerName;
     private final byte myParamCount;
 
-    public JavacMethodImpl(@Nullable String containingClass, String ownerName, byte paramCount, Set<Modifier> modifiers, Set<String> unmatchedModifiers, String name) {
-      super(name, modifiers, unmatchedModifiers);
+    public JavacMethodImpl(@Nullable String containingClass, String ownerName, byte paramCount, Set<Modifier> modifiers, Set<String> unmatchedModifiers, String name, @Nullable ImportProperties importProps) {
+      super(name, modifiers, unmatchedModifiers, importProps);
       myContainingClass = containingClass != null && !containingClass.isEmpty()? containingClass : null;
       myOwnerName = ownerName;
       myParamCount = paramCount;
@@ -181,8 +205,8 @@ public interface JavacRef {
     private final String myOwnerName;
     private final String myDescriptor;
 
-    public JavacFieldImpl(@Nullable String containingClass, String ownerName, Set<Modifier> modifiers, Set<String> unmatchedModifiers, String name, String descriptor) {
-      super(name, modifiers, unmatchedModifiers);
+    public JavacFieldImpl(@Nullable String containingClass, String ownerName, Set<Modifier> modifiers, Set<String> unmatchedModifiers, String name, String descriptor, @Nullable ImportProperties importProps) {
+      super(name, modifiers, unmatchedModifiers, importProps);
       myContainingClass = containingClass != null && !containingClass.isEmpty()? containingClass : null;
       myOwnerName = ownerName;
       myDescriptor = descriptor != null && !descriptor.isEmpty()? descriptor : null;
@@ -204,6 +228,30 @@ public interface JavacRef {
     @Nullable
     public String getDescriptor() {
       return myDescriptor;
+    }
+  }
+
+  class JavacPackageImportImpl extends JavacRefBase implements JavacPackageImport {
+    private static final ImportProperties PACKAGE_ON_DEMAND = ImportProperties.create(false, true);
+
+    public JavacPackageImportImpl(String packageFqName) {
+      super(packageFqName, Collections.<Modifier>emptySet(), null, PACKAGE_ON_DEMAND);
+    }
+
+    @NotNull
+    @Override
+    public String getOwnerName() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      return this == o || o != null && getClass() == o.getClass() && getName().equals(((JavacPackageImportImpl)o).getName());
+    }
+
+    @Override
+    public int hashCode() {
+      return getName().hashCode();
     }
   }
 

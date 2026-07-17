@@ -1,12 +1,35 @@
 // Copyright 2000-2020 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license that can be found in the LICENSE file.
 package org.jetbrains.jps.javac.ast;
 
-import com.sun.source.tree.*;
-import com.sun.source.util.*;
+import com.sun.source.tree.AnnotationTree;
+import com.sun.source.tree.ArrayTypeTree;
+import com.sun.source.tree.CompilationUnitTree;
+import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.ImportTree;
+import com.sun.source.tree.MemberSelectTree;
+import com.sun.source.tree.NewClassTree;
+import com.sun.source.tree.ParameterizedTypeTree;
+import com.sun.source.tree.PrimitiveTypeTree;
+import com.sun.source.tree.Tree;
+import com.sun.source.util.JavacTask;
+import com.sun.source.util.SourcePositions;
+import com.sun.source.util.TaskEvent;
+import com.sun.source.util.TaskListener;
+import com.sun.source.util.TreePath;
+import com.sun.source.util.Trees;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.jps.javac.ast.api.*;
+import org.jetbrains.jps.javac.ast.api.JavacDef;
+import org.jetbrains.jps.javac.ast.api.JavacFileData;
+import org.jetbrains.jps.javac.ast.api.JavacNameTable;
+import org.jetbrains.jps.javac.ast.api.JavacRef;
+import org.jetbrains.jps.javac.ast.api.JavacTypeCast;
 
-import javax.lang.model.element.*;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.Modifier;
+import javax.lang.model.element.Name;
+import javax.lang.model.element.PackageElement;
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
@@ -15,7 +38,12 @@ import java.io.File;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 
 final class JavacReferenceCollectorListener implements TaskListener {
   private static final String PACKAGE_INFO_SRC_FILENAME = "package-info.java";
@@ -155,13 +183,20 @@ final class JavacReferenceCollectorListener implements TaskListener {
       final MemberSelectTree id = (MemberSelectTree)anImport.getQualifiedIdentifier();
       final Element element = incompletelyProcessedFile.getReferencedElement(id);
       if (element == null) {
-        final ExpressionTree qExpr = id.getExpression();
-        if (qExpr instanceof MemberSelectTree) {
-          final MemberSelectTree classImport = (MemberSelectTree)qExpr;
-          final Element ownerElement = incompletelyProcessedFile.getReferencedElement(classImport);
-          final Name name = id.getIdentifier();
-          final JavacRef.ImportProperties importProps = JavacRef.ImportProperties.create(anImport.isStatic(), myNameTableCache.isAsterisk(name));
-          if (ownerElement != null && !importProps.isOnDemand()) {
+        final Element ownerElement = incompletelyProcessedFile.getReferencedElement(id.getExpression());
+        if (ownerElement == null) {
+          continue; // unresolvable import
+        }
+        final Name name = id.getIdentifier();
+        final JavacRef.ImportProperties importProps = JavacRef.ImportProperties.create(anImport.isStatic(), myNameTableCache.isAsterisk(name));
+        if (ownerElement.getKind() == ElementKind.PACKAGE) {
+          // package qualifiers occur in type-import-on-demand declarations only: import p.q.*;
+          if (importProps.isOnDemand()) {
+            incrementOrAdd(elements, new JavacRef.JavacPackageImportImpl(myNameTableCache.parseName(((PackageElement)ownerElement).getQualifiedName())));
+          }
+        }
+        else {
+          if (!importProps.isOnDemand()) {
             // member import
             for (Element memberElement : myElementUtility.getAllMembers((TypeElement)ownerElement)) {
               if (memberElement.getSimpleName() == name) {
@@ -169,9 +204,16 @@ final class JavacReferenceCollectorListener implements TaskListener {
               }
             }
           }
-          collectClassImports(ownerElement, elements, importProps);
+          // the qualifier type carries the import properties (including the on-demand flag for `import p.Outer.*`)
+          incrementOrAdd(elements, JavacRef.JavacElementRefBase.fromElement(null, ownerElement, null, myNameTableCache, importProps));
+          Element enclosing = ownerElement.getEnclosingElement();
+          if (enclosing != null) {
+            // enclosing types are referenced by the import statement, but are not the on-demand scope themselves
+            collectClassImports(enclosing, elements, JavacRef.ImportProperties.create(importProps.isStatic(), false));
+          }
         }
-      } else {
+      }
+      else {
         // class import
         collectClassImports(element, elements, JavacRef.ImportProperties.create(anImport.isStatic(), false));
       }
